@@ -1,0 +1,26 @@
+{
+    "name"         : "msg-resend",
+    "version"      : "0.0.1",
+    "description"  : "A Node Red node to resend flow messages",
+    "dependencies": {
+    },
+    "author": {
+        "name": "Bart Butenaers",
+    },
+    "license": "Apache-2.0",
+    "keywords": [ "node-red", "clone", "duplicate" ],
+    "bugs": {
+        "url": "https://github.com/bartbutenaers/node-red-contrib-msg-resend/issues"
+    },
+    "homepage": "https://github.com/bartbutenaers/node-red-contrib-msg-resend",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bartbutenaers/node-red-contrib-msg-resend.git"
+    },
+    "node-red"     : {
+        "nodes": {
+            "msg-resend": "msg_resend.js"
+        }
+    }
+}
+
