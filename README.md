@@ -11,6 +11,10 @@ When a new input message arrives, the active resending process (of the previous 
 
 Remark: An error will be generated, if input messages arrive too fast.
 
+Example use case: When a door has been opened, a siren should play an alarm sound five times in 2 minutes ...
+
+Thanks to Colin Law for providing me the basic [idea](https://groups.google.com/forum/#!searchin/node-red/butenaers/node-red/lAPYt5fxyUM/anAiSRkiFgAJ) of this node. 
+
 ## Resend interval
 The interval (in seconds) between two resends can be specified.  E.g. an interval of 5 seconds means, that the last input message will be resend every 5 seconds.
 
