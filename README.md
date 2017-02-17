@@ -1,9 +1,13 @@
 # node-red-contrib-msg-resend
 A Node Red node for resending flow messages.
 
-This node will resend the *last* input message several times to the output port, at specified time intervals.  The resending will continue until the maximum number has been reached, or until the next input message arrives.
+This node will resend the *last* input message X times to the output port, at specified time intervals (of Y seconds each).  The resending will continue until the maximum number has been reached.  E.g. resend the last input message 3 times:
 
-When a new input message arrives, the active resending process (of the previous input message) will be stopped.  And the resending process will start for the new input message.  
+![Timeline 1](images/timeline1.png)
+
+When a new input message arrives, the active resending process (of the previous input message) will be stopped.  And the resending process will start for the new input message.  E.g. msg1 has not been resend 3 times yet, when the new message msg2 arrives.  The resending of msg1 will be interrupted, and msg2 will be resend 3 times:
+
+![Timeline 2](images/timeline2.png)
 
 Remark: An error will be generated, if input messages arrive too fast.
 
