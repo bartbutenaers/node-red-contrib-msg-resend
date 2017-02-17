@@ -1,6 +1,15 @@
 # node-red-contrib-msg-resend
 A Node Red node for resending flow messages.
 
+Thanks to Colin Law and Dave C-J for providing me the basic [idea](https://groups.google.com/forum/#!searchin/node-red/butenaers/node-red/lAPYt5fxyUM/anAiSRkiFgAJ) of this node. 
+
+## Install
+Run the following npm command in your Node-RED environment.
+```
+npm install node-red-contrib-msg-resend
+```
+
+## Usage
 This node will resend the *last* input message X times to the output port, at specified time intervals (of Y seconds each).  The resending will continue until the maximum number has been reached.  E.g. resend the last input message 3 times:
 
 ![Timeline 1](images/timeline1.png)
@@ -13,17 +22,17 @@ Remark: An error will be generated, if input messages arrive too fast.
 
 Example use case: When a door has been opened, a siren should play an alarm sound five times in 2 minutes ...
 
-Thanks to Colin Law for providing me the basic [idea](https://groups.google.com/forum/#!searchin/node-red/butenaers/node-red/lAPYt5fxyUM/anAiSRkiFgAJ) of this node. 
+## Node properties
 
-## Resend interval
+### Resend interval
 The interval (in seconds) between two resends can be specified.  E.g. an interval of 5 seconds means, that the last input message will be resend every 5 seconds.
 
-## Max. count
+### Max. count
 The maximum number of resends (of the *same* input message) can be specified.  E.g. a maximum of 10 means, that the last input message will be resend maximum 10 times.
 
 Remark: A value of 0 means that the message will be resend infinitly.
 
-## Force cloning (advanced)
+### Force cloning (advanced)
 By default, the Node-Red flow framework will clone messages automatically: When a node puts a message on it's output port, that *original* message will be send (without cloning) via the first wire to the next node.  When multiple wires are connected to that output port, the message will be *cloned* automatically by Node-Red when send to wire 2, wire 3 ... :
 
 ![Cloning by framework](images/Framework_cloning.png)
