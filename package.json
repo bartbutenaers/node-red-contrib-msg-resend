@@ -1,11 +1,11 @@
 {
-    "name"         : "msg-resend",
+    "name"         : "node-red-contrib-msg-resend",
     "version"      : "0.0.1",
     "description"  : "A Node Red node to resend flow messages",
     "dependencies": {
     },
     "author": {
-        "name": "Bart Butenaers",
+        "name": "Bart Butenaers"
     },
     "license": "Apache-2.0",
     "keywords": [ "node-red", "clone", "duplicate" ],
