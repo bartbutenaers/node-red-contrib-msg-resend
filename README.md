@@ -32,6 +32,17 @@ The maximum number of resends (of the *same* input message) can be specified.  E
 
 Remark: A value of 0 means that the message will be resend infinitly.
 
+### Topic dependent (version 0.0.6 and above)
+By default, all messages will be taken into account (regardless of the their topic).  In case of topic-dependent resending, each topic will get it's own resending process.  When msg2 (with topic2) arrives during the resending of msg1 (with topic1), the resending of msg1 will not be stopped.  Instead both msg1 and msg2 will be resended simultaneously:
+
+![Timeline 3](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/timeline3.png)
+
+When msg2 (with topic1) arrives during the resending of msg1 (with same topic1), the resending of msg1 will be aborted and the resending of msg2 will start:
+
+![Timeline 4](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/timeline4.png)
+
+Remark: when topic-dependent resending is activated, messages with empty topic will be ignored in the resending process.
+
 ### Force cloning (advanced)
 By default, the Node-Red flow framework will clone messages automatically: When a node puts a message on it's output port, that *original* message will be send (without cloning) via the first wire to the next node.  When multiple wires are connected to that output port, the message will be *cloned* automatically by Node-Red when send to wire 2, wire 3 ... :
 
@@ -54,6 +65,7 @@ The node can also be controlled via incoming message properties:
 
 * `resend_interval` : Specify the interval length (between successive resends) in number of seconds.
 * `resend_max_count` : Specify the maximum number of resends.
+* `resend_by_topic` : Specify 'true/false' to activate topic-based resending (version 0.0.6 and above).
 * `resend_force_clone` : Specify 'true/false' to force message cloning or not.
 * `resend_ignore` : Specify 'true/false' to indicate whether this message should be ignored for resending or not.  
 
