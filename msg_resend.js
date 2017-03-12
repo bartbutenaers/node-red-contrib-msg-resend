@@ -1,4 +1,20 @@
-module.exports = function(RED) {
+/**
+ * Copyright 2017 Bart Butenaers
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ **/
+ 
+ module.exports = function(RED) {
     "use strict";
 
     function MessageResenderNode(config) {
@@ -6,9 +22,9 @@ module.exports = function(RED) {
         this.interval = config.interval * 1000; // in milliseconds
         this.maximumCount = config.maximum;
         this.forceClone = config.clone;
-        this.timer = 0;
-        this.msgCounter = 0;
-        this.prevTimestamp = Date.now();
+        this.byTopic = config.bytopic;   
+        this.statistics = new Map();
+        this.progress = '';
 
         var node = this;
 
@@ -20,7 +36,7 @@ module.exports = function(RED) {
             return this.error("The maximum count is not valid");
         }
 
-        function sendMsg(msg, node) {
+        function sendMsg(msg, node, statistic) {
             // There might be no need to clone the message (before sending it to the output).  As soon as multiple wires are
             // connected to the output port, the 'send' method will clone the messages automatically:  The original message
             // will be send to the first wire, and on every other wire a cloned message will be put.  However when the 
@@ -34,14 +50,24 @@ module.exports = function(RED) {
                 node.send(msg);
             }
          
-            node.msgCounter++;
+            statistic.counter++;
 
-            node.status({fill:"green",shape:"dot",text:"sended " + node.msgCounter + "x"});
-	}
+            if (node.byTopic) {
+                // Show different status text for topic-based resending, simulating a progress bar...
+                // (See https://github.com/bartbutenaers/node-red-contrib-msg-resend/issues/2 )
+                node.progress += '.';
+                if (node.progress.length > 5) {
+                    node.progress = '';
+                }
+                
+                node.status({fill:"green",shape:"dot",text:"Resending " + node.progress});
+            }
+            else {
+                node.status({fill:"green",shape:"dot",text:"sended " + statistic.counter + "x"});
+            }
+	    }
 
         this.on('input', function(msg) {
-            node.msgCounter = 0;
-
             // Programmatic control of resend interval using message parameter
             if (msg.hasOwnProperty("resend_interval")) {
                 if (!isNaN(msg.resend_interval) && isFinite(msg.resend_interval)) {
@@ -83,53 +109,88 @@ module.exports = function(RED) {
                 }
             }
             
+            // Programmatic control of activating resending by topic
+            if (msg.hasOwnProperty("resend_by_topic")) {
+                if (msg.resend_by_topic == true || msg.resend_by_topic == false) {
+                    node.byTopic = msg.resend_by_topic;
+                }
+                else {
+                    this.error("resend_by_topic is not a boolean value", msg);
+                }
+            }
+            
+            // When no topic-based resending, store all topics in the map as a single virtual topic (named 'all_topics')
+            var topic = node.byTopic ? msg.topic : "all_topics";
+            var statistic = node.statistics.get(topic);
+            
+            // In case of topic-based resending, skip messages without topic
+            if (node.byTopic && !topic) {
+                ignoreMessage = true;
+            }
+
             if(!ignoreMessage) {
-                // As soon as a message arrives, it will be cloned to the output
-                sendMsg(msg, node);
+                if (!statistic) {
+                    // If no statistic available yet (for that topic), let's create it
+                    statistic = {counter:0, previousTimestamp:0, timer:0, message:msg};
+                    node.statistics.set(topic, statistic);
+                }
+                else {
+                    // Start counting again from zero
+                    statistic.counter = 0;
+                }
+            
+                // As soon as a message arrives, it will be sended to the output
+                sendMsg(msg, node, statistic);
 
                 var msgTimestamp = Date.now();
             
-                if ((msgTimestamp - node.prevMsgTimestamp) <= node.interval) {
+                if ((msgTimestamp - statistic.previousTimestamp) <= node.interval) {
                     node.status({fill:"red",shape:"ring",text:"High input rate"});
                     return null;
                 }
 
-                node.prevMsgTimestamp = msgTimestamp;
+                statistic.previousTimestamp = msgTimestamp;
             }
-
-            // Check whether another timer has already been started (by this node) previously
-            if (node.timer !== 0) {
-               // When a timer is already running, stop it (since that timer is still cloning the previous message)
-               clearInterval(node.timer);
-               node.timer = 0;
+          
+            // Check whether another timer has already been started (by this node) previously, for the same topic
+            if (statistic && statistic.timer) {
+               // When a timer is already running (for the specified topic), stop it (since that timer is still cloning the previous message)
+               clearInterval(statistic.timer);
+               statistic.timer = 0;
             }
 
             if (!ignoreMessage) {
                 // Start a new timer, that repeatedly sends the new msg to the output
                 // (with the specified milliseconds between every two repeats).
                 // The timer id will be stored, so it can be found when a new msg arrives at the input.
-                node.timer = setInterval(function() {
+                statistic.timer = setInterval(function() {
                     node.status({});
-
-                    if(node.maximumCount > 0 && node.msgCounter >= node.maximumCount) {
+                    if(node.maximumCount > 0 && statistic.counter >= node.maximumCount) {
                         // The maximum number of messages has been send, so stop the timer (for the last received input message).
-                        clearInterval(node.timer);
-                        node.timer = 0;
-                        node.status({fill:"green",shape:"dot",text:"maximum reached"});
+                        clearInterval(statistic.timer);
+                        
+                        // Remove the statistic, since it is not needed anymore
+                        node.statistics.delete(topic);
+                        
+                        // Only update the node status if all messages (for all topics) have been resend
+                        if (node.statistics.size == 0) {
+                            node.status({fill:"green",shape:"dot",text:"maximum reached"});
+                        }
                     }
                     else {
-                        sendMsg(msg, node);
+                        sendMsg(msg, node, statistic);
                     }
                 }, node.interval);
+                node.statistics.set(topic, timer);
             } 
         });
 
         this.on("close", function() {
-            if (node.timer) {
-                clearInterval(node.timer);
-                node.timer = 0;
-                node.status({});
+            for(var statistic in node.statistics) {
+                clearInterval(statistic.timer);
             }
+            node.statistics.clear();
+            node.status({});
         });
     }
 

@@ -1,3 +1,16 @@
+<!--
+  Copyright 2017, Bart Butenaers
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
 <script type="text/javascript">
     RED.nodes.registerType('msg-resend',{
         category: 'function',
@@ -5,6 +18,7 @@
         defaults: {
             interval: {value:5,required:true,validate:RED.validators.number()},
             maximum: {value:5,validate:RED.validators.number()},
+            bytopic: {value:false},
             clone: {value:false},
             name: {value:""}
         },
@@ -28,6 +42,11 @@
     </div>
     <div class="form-row">
         <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-bytopic" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-bytopic" style="width:70%;">Topic dependent</label>
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
         <input type="checkbox" id="node-input-clone" style="display: inline-block; width: auto; vertical-align: top;">
         <label for="node-input-clone" style="width:70%;">Force cloning</label>
     </div>
@@ -47,7 +66,9 @@
     <p><strong>Max. count:</strong><br/>
     This is the maximum number of times that the same input message will be resend. A value of <code>0</code> means infinite (i.e. no maximum).
     For example: a maximum of <code>10</code> means, that the last input message will be resend maximum 10 times.</p>
-    <p><strong>Force cloning</strong><br/>
+    <p><strong>Topic dependent:</strong><br/>
+    When selected, a separte resending process will be started for every topic.  Messages with empty topic will be ignored.</p>
+    <p><strong>Force cloning:</strong><br/>
     When selected, the <code>msg</code> will be cloned anyway, independent from message cloning by the Node-Red flow framework.</p>
 </script>
 
