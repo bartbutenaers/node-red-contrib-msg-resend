@@ -67,7 +67,7 @@
             }
 	    }
 
-        this.on('input', function(msg) {
+        node.on('input', function(msg) {
             // Programmatic control of resend interval using message parameter
             if (msg.hasOwnProperty("resend_interval")) {
                 if (!isNaN(msg.resend_interval) && isFinite(msg.resend_interval)) {
@@ -181,12 +181,11 @@
                         sendMsg(msg, node, statistic);
                     }
                 }, node.interval);
-                node.statistics.set(topic, timer);
             } 
         });
 
-        this.on("close", function() {
-            for(var statistic in node.statistics) {
+        node.on("close", function() {
+            for(var statistic of node.statistics.values()) {
                 clearInterval(statistic.timer);
             }
             node.statistics.clear();
