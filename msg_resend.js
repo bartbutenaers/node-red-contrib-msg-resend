@@ -25,6 +25,7 @@
         this.byTopic = config.bytopic;   
         this.statistics = new Map();
         this.progress = '';
+        this.displayTimestamp = 0;
 
         var node = this;
 
@@ -37,6 +38,8 @@
         }
 
         function sendMsg(msg, node, statistic) {
+            var displayText = "";
+            
             // There might be no need to clone the message (before sending it to the output).  As soon as multiple wires are
             // connected to the output port, the 'send' method will clone the messages automatically:  The original message
             // will be send to the first wire, and on every other wire a cloned message will be put.  However when the 
@@ -60,10 +63,16 @@
                     node.progress = '';
                 }
                 
-                node.status({fill:"green",shape:"dot",text:"Resending " + node.progress});
+                displayText = "Resending " + node.progress;
             }
             else {
-                node.status({fill:"green",shape:"dot",text:"sended " + statistic.counter + "x"});
+                displayText = "sended " + statistic.counter + "x";
+            }
+            
+            // Update the node status at a maximum rate of 1 second, to avoid update issues in case of high data rates
+            if (Date.now() - node.displayTimestamp > 900 ) {
+                node.status({fill:"green",shape:"dot",text: displayText});
+                node.displayTimestamp = Date.now();
             }
 	    }
 
@@ -164,7 +173,10 @@
                 // (with the specified milliseconds between every two repeats).
                 // The timer id will be stored, so it can be found when a new msg arrives at the input.
                 statistic.timer = setInterval(function() {
-                    node.status({});
+                    if (Date.now() - node.displayTimestamp > 500 ) {
+                        node.status({});
+                    }
+                    
                     if(node.maximumCount > 0 && statistic.counter >= node.maximumCount) {
                         // The maximum number of messages has been send, so stop the timer (for the last received input message).
                         clearInterval(statistic.timer);
