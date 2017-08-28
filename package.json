@@ -1,6 +1,6 @@
 {
     "name"         : "node-red-contrib-msg-resend",
-    "version"      : "0.0.6",
+    "version"      : "0.0.7",
     "description"  : "A Node Red node to resend flow messages",
     "dependencies": {
     },
