@@ -77,30 +77,41 @@
 	    }
 
         node.on('input', function(msg) {
-            // Programmatic control of resend interval using message parameter
+            // When no topic-based resending, store all topics in the map as a single virtual topic (named 'all_topics')
+            var topic = node.byTopic ? msg.topic : "all_topics";
+            var statistic = node.statistics.get(topic);
+            
+            // If no statistic available yet (for that topic), let's create it
+            if (!statistic) {
+                // Use by default the interval, maximumCount and force_clone of the node itself
+                statistic = {counter:0, previousTimestamp:0, timer:0, message:msg, interval:node.interval, maximumCount:node.maximumCount, forceClone:node.forceClone};
+                node.statistics.set(topic, statistic);
+            }
+
+            // Programmatic control of resend interval using message parameter (which is stored per topic)
             if (msg.hasOwnProperty("resend_interval")) {
                 if (!isNaN(msg.resend_interval) && isFinite(msg.resend_interval)) {
-                    node.interval = msg.resend_interval * 1000; // In milliseconds
+                    statistic.interval = msg.resend_interval * 1000; // In milliseconds
                 }
                 else {
                     this.error("resend_interval is not a numeric value", msg);
                 }
             }
 
-            // Programmatic control of max.count using message parameter
+            // Programmatic control of max.count using message parameter (which is stored per topic)
             if (msg.hasOwnProperty("resend_max_count")) {
                 if (!isNaN(msg.resend_max_count) && isFinite(msg.resend_max_count)) {
-                    node.maximumCount = msg.resend_max_count;
+                    statistic.maximumCount = msg.resend_max_count;
                 }
                 else {
                     this.error("resend_max_count is not a numeric value", msg);
                 }
             }
 
-            // Programmatic control of force cloning using message parameter
+            // Programmatic control of force cloning using message parameter (which is stored per topic)
             if (msg.hasOwnProperty("resend_force_clone")) {
                 if (msg.resend_force_clone == true || msg.resend_force_clone == false) {
-                    node.forceClone = msg.resend_force_clone;
+                    statistic.forceClone = msg.resend_force_clone;
                 }
                 else {
                     this.error("resend_force_clone is not a boolean value", msg);
@@ -127,33 +138,22 @@
                     this.error("resend_by_topic is not a boolean value", msg);
                 }
             }
-            
-            // When no topic-based resending, store all topics in the map as a single virtual topic (named 'all_topics')
-            var topic = node.byTopic ? msg.topic : "all_topics";
-            var statistic = node.statistics.get(topic);
-            
+                        
             // In case of topic-based resending, skip messages without topic
-            if (node.byTopic && !topic) {
+            if (node.byTopic && !msg.hasOwnProperty("topic")) {
                 ignoreMessage = true;
             }
 
             if(!ignoreMessage) {
-                if (!statistic) {
-                    // If no statistic available yet (for that topic), let's create it
-                    statistic = {counter:0, previousTimestamp:0, timer:0, message:msg};
-                    node.statistics.set(topic, statistic);
-                }
-                else {
-                    // Start counting again from zero
-                    statistic.counter = 0;
-                }
+                // Start counting again from zero
+                statistic.counter = 0;
             
                 // As soon as a message arrives, it will be sended to the output
                 sendMsg(msg, node, statistic);
 
                 var msgTimestamp = Date.now();
             
-                if ((msgTimestamp - statistic.previousTimestamp) <= node.interval) {
+                if ((msgTimestamp - statistic.previousTimestamp) <= statistic.interval) {
                     node.status({fill:"red",shape:"ring",text:"High input rate"});
                     return null;
                 }
@@ -177,7 +177,7 @@
                         node.status({});
                     }
                     
-                    if(node.maximumCount > 0 && statistic.counter >= node.maximumCount) {
+                    if(statistic.maximumCount > 0 && statistic.counter >= statistic.maximumCount) {
                         // The maximum number of messages has been send, so stop the timer (for the last received input message).
                         clearInterval(statistic.timer);
                         
@@ -192,7 +192,7 @@
                     else {
                         sendMsg(msg, node, statistic);
                     }
-                }, node.interval);
+                }, statistic.interval);
             } 
         });
 
