@@ -66,7 +66,7 @@
                 displayText = "Resending " + node.progress;
             }
             else {
-                displayText = "sended " + statistic.counter + "x";
+                displayText = "sent " + statistic.counter + "x";
             }
             
             // Update the node status at a maximum rate of 1 second, to avoid update issues in case of high data rates
