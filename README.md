@@ -32,7 +32,7 @@ The maximum number of resends (of the *same* input message) can be specified.  E
 
 Remark: A value of 0 means that the message will be resend infinitly.
 
-### Topic dependent (version 0.0.6 and above)
+### Topic dependent (since version 0.0.6)
 By default, all messages will be taken into account (regardless of the their topic).  In case of topic-dependent resending, each topic will get it's own resending process.  When msg2 (with topic2) arrives during the resending of msg1 (with topic1), the resending of msg1 will not be stopped.  Instead both msg1 and msg2 will be resended simultaneously:
 
 ![Timeline 3](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/timeline3.png)
@@ -60,7 +60,34 @@ This issue can be solved easily by selecting the **force cloning** checkbox.  In
 
 Remark: be aware that the messages are now cloned twice (except from the first wire): once by the node-red-contrib-msg-resend node, and once by the Node-Red flow framework.  This might reduce performance e.g. when the message contains large buffers.  In those cases, it might be advisable to turn off the 'force cloning'...
 
-## Node control (version 0.0.5 and above)
+### Send first message after interval (since version 0.0.7)
+When this option is disabled, the input message will be send the first time to the output *immediately when it arrives*.  From then on it is resended with interval X in between:
+
+![Immediate output](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/timeline_immediate.png)
+
+When this option is enabled, the resending process will only start after interval X:
+
+![Delayed output](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/timeline_delay.png)
+
+### Allow messages to arrive at high rates (since version 0.0.7)
+When this option is disabled, the *message rate will be limited*. Suppose the resend interval is set to 1 second. When a message msg1 (with topic_1) arrives, a timer will be setup that resends this message every second. However when a new message msg2 arrives (same topic_1) faster than 1 second: a new timer should be created and the previous timer (that didn't get a chance to send anything!) need to be removed. It is useles to create timers that don't get a chance to do anything. To prevent this, a `high input rate` error is displayed (and the new message will be ignored)...
+
+![Timeline 5](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/timeline5.png)
+
+Remark: if messages arrive at high speed, this error will not occur if the messages have *different* topics.  Indeed the resend node will create a new timer for each message, even if they arrive at higher rates.
+
+When this option is enabled, all messages will be accepted (even the ones that arrive very fast after the previous message).  This way you can be sure that no message is ignored.  However make sure that messages don't keep arriving at high rate, because this will decrease performance (since timers keep being created and destroyed without being used).
+
+### Add counters to output message (since version 0.0.7)
+In some cases it might be useful to know an output message is the N-th resend of the input message.  When this option is enabled, the names of the two output message fields need to be specified:
+
+![Output count fields](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/output_count_fields.png)
+
+The *Output Count* field will be filled with the current resend count, while the *Output Max* field will be filled with the maximum resend count (as specified in the config screen, or via a control message):
+
+![Output count fields](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/output_count_debug.png)
+
+## Node control (since version 0.0.5)
 The node can also be controlled via incoming message properties:
 
 * `resend_interval` : Specify the interval length (between successive resends) in number of seconds.
@@ -69,7 +96,7 @@ The node can also be controlled via incoming message properties:
 * `resend_force_clone` : Specify 'true/false' to force message cloning or not.
 * `resend_ignore` : Specify 'true/false' to indicate whether this message should be ignored for resending or not.  
 
-In version ***0.0.7 (and above)*** the properties (`resend_interval`, `resend_max_count` and `resend_force_clone`) can be controlled for EACH topic separately, when the `msg.topic` field is filled and the `resend_by_topic` is set to `true`.  An example flow:
+Since version ***0.0.7*** the properties (`resend_interval`, `resend_max_count` and `resend_force_clone`) can be controlled for EACH topic separately, when the `msg.topic` field is filled and the *Topic Dependent* option is enabled.  An example flow:
 
 ![Setup per topic](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/timeline6.png)
 
@@ -88,10 +115,3 @@ An example flow:
 ```
 [{"id":"e565f207.a44da","type":"inject","z":"6beebf75.ed0b5","name":"Only data","topic":"","payload":"Data that should be resended","payloadType":"str","repeat":"","crontab":"","once":false,"x":272.89573669433594,"y":1329.4446411132812,"wires":[["844b7818.54bed8"]]},{"id":"844b7818.54bed8","type":"msg-resend","z":"6beebf75.ed0b5","interval":"5","maximum":"4","clone":false,"name":"","x":748.2776947021484,"y":1329.7153930664062,"wires":[["44d8aa0a.8837d4"]]},{"id":"44d8aa0a.8837d4","type":"debug","z":"6beebf75.ed0b5","name":"","active":true,"console":"false","complete":"true","x":919.8957366943359,"y":1329.4446411132812,"wires":[]},{"id":"e1476701.aa6bc8","type":"change","z":"6beebf75.ed0b5","name":"Settings & ignore","rules":[{"t":"set","p":"resend_interval","pt":"msg","to":"4","tot":"num"},{"t":"set","p":"resend_max_count","pt":"msg","to":"9","tot":"num"},{"t":"set","p":"resend_force_clone","pt":"msg","to":"true","tot":"bool"},{"t":"set","p":"resend_ignore","pt":"msg","to":"true","tot":"bool"}],"action":"","property":"","from":"","to":"","reg":false,"x":485.89573669433594,"y":1429.4446411132812,"wires":[["8ede89fc.b1f808","844b7818.54bed8"]]},{"id":"9f27a42.0eed858","type":"inject","z":"6beebf75.ed0b5","name":"Data & control","topic":"Data that should be resended","payload":"","payloadType":"str","repeat":"","crontab":"","once":false,"x":280.89581298828125,"y":1380.444580078125,"wires":[["26dc52d0.33db5e"]]},{"id":"c6f6338e.bb59b","type":"inject","z":"6beebf75.ed0b5","name":"Only control","topic":"Data that should not be resended","payload":"","payloadType":"str","repeat":"","crontab":"","once":false,"x":280.89581298828125,"y":1429.444580078125,"wires":[["e1476701.aa6bc8"]]},{"id":"26dc52d0.33db5e","type":"change","z":"6beebf75.ed0b5","name":"Settings","rules":[{"t":"set","p":"resend_interval","pt":"msg","to":"3","tot":"num"},{"t":"set","p":"resend_max_count","pt":"msg","to":"8","tot":"num"},{"t":"set","p":"resend_force_clone","pt":"msg","to":"false","tot":"bool"}],"action":"","property":"","from":"","to":"","reg":false,"x":514.8957366943359,"y":1380.4446411132812,"wires":[["8ede89fc.b1f808","844b7818.54bed8"]]},{"id":"a8de86f7.3fbab8","type":"inject","z":"6beebf75.ed0b5","name":"Abort current","topic":"Data that should not be resended","payload":"","payloadType":"str","repeat":"","crontab":"","once":false,"x":279.89581298828125,"y":1479.444580078125,"wires":[["dc117503.73cf88"]]},{"id":"dc117503.73cf88","type":"change","z":"6beebf75.ed0b5","name":"Ignore","rules":[{"t":"set","p":"resend_ignore","pt":"msg","to":"true","tot":"bool"}],"action":"","property":"","from":"","to":"","reg":false,"x":524.8958129882812,"y":1479.444580078125,"wires":[["8ede89fc.b1f808","844b7818.54bed8"]]}]
 ```
-
-### Message rate limitation
-Suppose the resend interval is set to 1 second. When a message msg1 (with topic_1) arrives, a timer will be setup that resends this message every second. However when a new message msg2 arrives (same topic_1) faster than 1 second: a new timer should be created and the previous timer (that didn't get a chance to send anything!) need to be removed. It is useles to create timers that don't get a chance to do anything. To prevent this, a `high input rate` error is displayed (and the new message will be ignored)...
-
-![Timeline 5](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/timeline5.png)
-
-Remark: if messages arrive at high speed, this error will not occur if the messages have *different* topics.  Indeed the resend node will create a new timer for each message, even if they arrive at higher rates.
