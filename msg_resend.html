@@ -17,9 +17,21 @@
         color: '#a6bbcf',
         defaults: {
             interval: {value:5,required:true,validate:RED.validators.number()},
+            intervalUnit: {value:"secs"},
             maximum: {value:5,validate:RED.validators.number()},
             bytopic: {value:false},
             clone: {value:false},
+            firstDelayed: {value:false},
+            addCounters: {value:false},
+            highRate: {value:false},
+            outputCountField: {value:"", validate:function(v) { 
+                // Only required when addCounters is selected
+                return !$("#node-input-addCounters").prop("checked") || v; 
+            }},
+            outputMaxField: {value:"", validate:function(v) { 
+                // Only required when addCounters is selected
+                return !$("#node-input-addCounters").prop("checked") || v 
+            }},
             name: {value:""}
         },
         inputs:1,
@@ -27,6 +39,49 @@
         icon: "resend.png",
         label: function() {
             return this.name||"msg-resend";
+        },
+        oneditprepare: function() {
+            // Set a default units of 'seconds' for existing nodes that don't have that field yet.
+            $('#node-input-intervalUnit').val(this.intervalUnit || "secs");
+
+            // Show the outputCountField value in a typedinput element (dropdown with only 'msg')
+            var value = $("#node-input-outputCountField").val() || '';
+            $("#node-input-typed-outputCountField").typedInput({types:['msg']});
+            $("#node-input-typed-outputCountField").typedInput('type','msg');
+            $("#node-input-typed-outputCountField").typedInput('value',value);
+            
+            // Show the outputMaxField value in a typedinput element (dropdown with only 'msg')
+            var value = $("#node-input-outputMaxField").val() || '';
+            $("#node-input-typed-outputMaxField").typedInput({types:['msg']});
+            $("#node-input-typed-outputMaxField").typedInput('type','msg');
+            $("#node-input-typed-outputMaxField").typedInput('value',value);
+                
+            // Show the rows (concerning the counters detailed settings) only when the checkbox is selected
+            if (this.addCounters === true) {
+                $(".addCountersDetail-row").show();
+            }
+            else {
+                $(".addCountersDetail-row").hide();
+            }
+            
+            // When the addCounters checkbox is selected afterwards, the visibility of the rows (concerning the counters detailed settings)
+            $("#node-input-addCounters").change(function() {
+                if(this.checked) {
+                    $(".addCountersDetail-row").show();
+                }
+                else {
+                    $(".addCountersDetail-row").hide();
+                }
+            });                        
+        },
+        oneditsave: function() {
+            // Copy the outputCountField value from the typedinput element to the outputCountField element
+            var value = $("#node-input-typed-outputCountField").typedInput('value');
+            $("#node-input-outputCountField").val(value);
+            
+            // Copy the outputMaxField value from the typedinput element to the outputMaxField element
+            var value = $("#node-input-typed-outputMaxField").typedInput('value');
+            $("#node-input-outputMaxField").val(value);
         }
     });
 </script>
@@ -34,11 +89,17 @@
 <script type="text/x-red" data-template-name="msg-resend">
     <div class="form-row">
         <label for="node-input-interval"><i class="fa fa-tasks"></i> Interval</label>
-        <input type="text" id="node-input-interval" placeholder="Interval">
+        <input type="number" id="node-input-interval" style="width:180px;" placeholder="Interval">
+        <select id="node-input-intervalUnit" style="width:120px;">
+            <option value="msecs">MilliSeconds</option>
+            <option value="secs">Seconds</option>
+            <option value="mins">Minutes</option>
+            <option value="hours">Hours</option>
+        </select>
     </div>
     <div class="form-row">
         <label for="node-input-maximum"><i class="fa fa-hashtag"></i> Max. count</label>
-        <input type="text" id="node-input-maximum" placeholder="Max. count">
+        <input type="number" id="node-input-maximum" placeholder="Max. count">
     </div>
     <div class="form-row">
         <label>&nbsp;</label>
@@ -49,6 +110,31 @@
         <label>&nbsp;</label>
         <input type="checkbox" id="node-input-clone" style="display: inline-block; width: auto; vertical-align: top;">
         <label for="node-input-clone" style="width:70%;">Force cloning</label>
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-firstDelayed" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-firstDelayed" style="width:70%;">Send first message after interval</label>
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-highRate" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-highRate" style="width:70%;">Allow messages to arrive at high rates</label>
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-addCounters" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-addCounters" style="width:70%;">Add counters to output message</label>
+    </div>    
+    <div class="form-row addCountersDetail-row">
+        <label for="node-input-typed-outputCountField"><i class="fa fa-list"></i> Output count</label>
+        <input id="node-input-typed-outputCountField" type="text" style="width: 70%">
+        <input id="node-input-outputCountField" type="hidden">
+    </div>
+    <div class="form-row addCountersDetail-row">
+        <label for="node-input-typed-outputMaxField"><i class="fa fa-list"></i> Output max</label>
+        <input id="node-input-typed-outputMaxField" type="text" style="width: 70%">
+        <input id="node-input-outputMaxField" type="hidden">
     </div>
     <br/>
     <div class="form-row">
@@ -61,14 +147,22 @@
     <p>A simple node to resend input messages.</p>
     <p>When a new input message arrives, it will be (re)send to the output port at specified time intervals.  This process will repeat until the next input message arrives, or until the maximum number of resends has been reached.</p>
     <p><strong>Interval:</strong><br/>
-    This is the interval (in seconds) between two resends.
+    This is the interval between two resends, with a specified time unit.
     For example: an interval of <code>5 seconds</code> means, that the last input message will be resend every 5 seconds.</p>
-    <p><strong>Max. count:</strong><br/>
-    This is the maximum number of times that the same input message will be resend. A value of <code>0</code> means infinite (i.e. no maximum).
-    For example: a maximum of <code>10</code> means, that the last input message will be resend maximum 10 times.</p>
+    <p><strong>Output max:</strong><br/>
+    When an output message field name is specified, the maximum count will be included in that field.</p>
     <p><strong>Topic dependent:</strong><br/>
     When selected, a separte resending process will be started for every topic.  Messages with empty topic will be ignored.</p>
     <p><strong>Force cloning:</strong><br/>
     When selected, the <code>msg</code> will be cloned anyway, independent from message cloning by the Node-Red flow framework.</p>
+    <p><strong>Send first message after interval:</strong><br/>
+    When selected, the first <code>msg</code> will be send after the interval.  When deselected, the first message will be send immediately.</p>
+    <p><strong>Add counters to output message:</strong><br/>
+    When selected, the current message counter and the maximum count will be added to the output message (in the two specified message fields).</p>
+    <p><strong>Max. count:</strong><br/>
+    This is the maximum number of times that the same input message will be resend. A value of <code>0</code> means infinite (i.e. no maximum).
+    For example: a maximum of <code>10</code> means, that the last input message will be resend maximum 10 times.</p>
+    <p><strong>Output count:</strong><br/>
+    When an output message field name is specified, the current message count will be included in that field.</p>
 </script>
 
