@@ -43,6 +43,19 @@ When msg2 (with topic1) arrives during the resending of msg1 (with same topic1),
 
 Remark: *when topic-dependent resending is activated, messages with empty topic will be ignored in the resending process!*
 
+### Stop resending
+The current resend process can be stopped prematurely, by sending an input message containing `msg.resend_ignore = true`.  Indeed when such a message arrives, the current resend process will be stopped and **no** new process will be started (since it will be 'ignored' for resending)...
+
++ Topic dependent: when the input message contains a `msg.topic`, only the current resend process for that specific topic will be stopped.
++ Topic independent: when the input message contains no `msg.topic`, all the current resend processes (i.e. for all topics) will be stopped.
+
+An example flow for topic-dependent stopping:
+![Stop resending](https://raw.githubusercontent.com/bartbutenaers/node-red-contrib-msg-resend/master/images/stop_resending.png)
+
+```
+[{"id":"10c5dc68.608864","type":"msg-resend","z":"279b8956.27dfe6","interval":"3","maximum":5,"bytopic":false,"clone":false,"name":"","x":1910,"y":80,"wires":[["d1891e1e.6a675"]]},{"id":"f76f3d4b.37f0c","type":"inject","z":"279b8956.27dfe6","name":"Value to resend","topic":"","payload":"someValue","payloadType":"str","repeat":"","crontab":"","once":false,"onceDelay":0.1,"x":1500,"y":80,"wires":[["10c5dc68.608864"]]},{"id":"915d5ab8.4528e8","type":"inject","z":"279b8956.27dfe6","name":"Stop value","topic":"","payload":"","payloadType":"date","repeat":"","crontab":"","once":false,"onceDelay":0.1,"x":1480,"y":140,"wires":[["4966f1d6.1f68"]]},{"id":"4966f1d6.1f68","type":"change","z":"279b8956.27dfe6","name":"","rules":[{"t":"set","p":"resend_ignore","pt":"msg","to":"true","tot":"bool"}],"action":"","property":"","from":"","to":"","reg":false,"x":1680,"y":140,"wires":[["10c5dc68.608864"]]},{"id":"d1891e1e.6a675","type":"debug","z":"279b8956.27dfe6","name":"","active":true,"tosidebar":true,"console":false,"tostatus":false,"complete":"false","x":2090,"y":80,"wires":[]}]
+```
+
 ### Force cloning (advanced)
 By default, the Node-Red flow framework will clone messages automatically: When a node puts a message on it's output port, that *original* message will be send (without cloning) via the first wire to the next node.  When multiple wires are connected to that output port, the message will be *cloned* automatically by Node-Red when send to wire 2, wire 3 ... :
 
