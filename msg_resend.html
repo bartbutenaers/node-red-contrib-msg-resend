@@ -157,6 +157,8 @@
     When selected, the <code>msg</code> will be cloned anyway, independent from message cloning by the Node-Red flow framework.</p>
     <p><strong>Send first message after interval:</strong><br/>
     When selected, the first <code>msg</code> will be send after the interval.  When deselected, the first message will be send immediately.</p>
+    <p><strong>Allow messages to arrive at high rates:</strong><br/>
+    When this option is enabled, all messages will be accepted (even the ones that arrive very fast after the previous message). However make sure that messages don't keep arriving at high rate for a long time period.</p>
     <p><strong>Add counters to output message:</strong><br/>
     When selected, the current message counter and the maximum count will be added to the output message (in the two specified message fields).</p>
     <p><strong>Max. count:</strong><br/>
