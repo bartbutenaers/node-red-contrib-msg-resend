@@ -145,7 +145,7 @@
 
 <script type="text/x-red" data-help-name="msg-resend">
     <p>A simple node to resend input messages.</p>
-    <p>When a new input message arrives, it will be (re)send to the output port at specified time intervals.  This process will repeat until the next input message arrives, or until the maximum number of resends has been reached.</p>
+    <p>When a new input message arrives, it will be (re)sent to the output port at specified time intervals.  This process will repeat until the next input message arrives, or until the maximum number of resends has been reached.</p>
     <p><strong>Interval:</strong><br/>
     This is the interval between two resends, with a specified time unit.
     For example: an interval of <code>5 seconds</code> means, that the last input message will be resend every 5 seconds.</p>
@@ -166,5 +166,9 @@
     For example: a maximum of <code>10</code> means, that the last input message will be resend maximum 10 times.</p>
     <p><strong>Output count:</strong><br/>
     When an output message field name is specified, the current message count will be included in that field.</p>
+    <p><strong>Abort current resend sequence:</strong><br/>
+    To abort a resend sequence in progress, simply send another message containing msg.resend_ignore and set it to boolean true<br/>
+    (this way the original resending is ended and no new resending process is started).</p>
+    
 </script>
 
