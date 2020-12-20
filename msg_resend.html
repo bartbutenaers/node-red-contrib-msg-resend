@@ -23,6 +23,7 @@
             clone: {value:false},
             firstDelayed: {value:false},
             addCounters: {value:false},
+            waitForResend: {value:false},
             highRate: {value:false},
             outputCountField: {value:"", validate:function(v) { 
                 // Only required when addCounters is selected
@@ -125,7 +126,12 @@
         <label>&nbsp;</label>
         <input type="checkbox" id="node-input-addCounters" style="display: inline-block; width: auto; vertical-align: top;">
         <label for="node-input-addCounters" style="width:70%;">Add counters to output message</label>
-    </div>    
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <input type="checkbox" id="node-input-waitForResend" style="display: inline-block; width: auto; vertical-align: top;">
+        <label for="node-input-waitForResend" style="width:70%;">Wait for explicit resend_messages=true message</label>
+    </div>   
     <div class="form-row addCountersDetail-row">
         <label for="node-input-typed-outputCountField"><i class="fa fa-list"></i> Output count</label>
         <input id="node-input-typed-outputCountField" type="text" style="width: 70%">
@@ -162,6 +168,8 @@
     When this option is enabled, all messages will be accepted (even the ones that arrive very fast after the previous message). However make sure that messages don't keep arriving at high rate for a long time period.</p>
     <p><strong>Add counters to output message:</strong><br/>
     When selected, the current message counter and the maximum count will be added to the output message (in the two specified message fields).</p>
+    <p><strong>Wait for explicit resend_messages=true message:</strong><br/>
+    When selected, will pass the messages (without resending them) at startup until a <code>msg.resend_messages=true</code> message arrives.</p>    
     <p><strong>Max. count:</strong><br/>
     This is the maximum number of times that the same input message will be resend. A value of <code>0</code> means infinite (i.e. no maximum).
     For example: a maximum of <code>10</code> means, that the last input message will be resend maximum 10 times.</p>

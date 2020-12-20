@@ -26,6 +26,7 @@
         this.firstDelayed     = config.firstDelayed;
         this.byTopic          = config.bytopic;  
         this.addCounters      = config.addCounters;
+        this.waitForResend    = config.waitForResend;
         this.highRate         = config.highRate;
         this.outputCountField = (config.outputCountField || '').trim();
         this.outputMaxField   = (config.outputMaxField || '').trim();        
@@ -60,6 +61,7 @@
         function sendMsg(msg, node, statistic) {
             var displayText = "";
             var outputMsg = msg;
+            
             
             statistic.counter++;
             
@@ -127,7 +129,7 @@
             // If no statistic available yet (for that topic), let's create it
             if (!statistic) {
                 // Use by default the interval, maximumCount and force_clone of the node itself
-                statistic = {counter:0, previousTimestamp:0, timer:0, message:msg, interval:node.interval, maximumCount:node.maximumCount, forceClone:node.forceClone};
+                statistic = {counter:0, previousTimestamp:0, timer:0, message:msg, interval:node.interval, maximumCount:node.maximumCount, forceClone:node.forceClone, resend_messages:!node.waitForResend};
                 node.statistics.set(topic, statistic);
             }
 
@@ -165,7 +167,27 @@
                     this.error("resend_force_clone is not a boolean value", msg);
                 }
             }
+            
+            // Programmatic control of the current mode
+            if (msg.hasOwnProperty("resend_messages")) {
+                if (msg.resend_messages === true || msg.resend_messages === false) {
+                    statistic.resend_messages = msg.resend_messages;
+                }
+                else {
+                    this.error("resend_messages is not a boolean value", msg);
+                }
+            }
 
+            // Programmatic control of activating resending by topic
+            if (msg.hasOwnProperty("resend_by_topic")) {
+                if (msg.resend_by_topic == true || msg.resend_by_topic == false) {
+                    node.byTopic = msg.resend_by_topic;
+                }
+                else {
+                    this.error("resend_by_topic is not a boolean value", msg);
+                }
+            }
+            
             // Programmatic control to ignore this message from being cloned using message parameter
             var ignoreMessage = false;
             if (msg.hasOwnProperty("resend_ignore")) {
@@ -176,23 +198,19 @@
                     this.error("resend_ignore is not a boolean value", msg);
                 }
             }
-            
-            // Programmatic control of activating resending by topic
-            if (msg.hasOwnProperty("resend_by_topic")) {
-                if (msg.resend_by_topic == true || msg.resend_by_topic == false) {
-                    node.byTopic = msg.resend_by_topic;
-                }
-                else {
-                    this.error("resend_by_topic is not a boolean value", msg);
-                }
-            }
-                        
-            // In case of topic-based resending, skip messages without topic
+                    
+            // In case of topic-based resending, don't resend messages without topic
+            var resendMessage = true;
             if (node.byTopic && !msg.hasOwnProperty("topic")) {
-                ignoreMessage = true;
+                resendMessage = false;
+            }
+            
+            // Don't resend messages when the messages when resending is deactivated, unless we are forced to resend this message
+            if (!statistic.resend_messages && !msg.resend_force) {
+                resendMessage = false;
             }
 
-            if(!ignoreMessage) {                
+            if(!ignoreMessage && resendMessage) {                
                 var msgTimestamp = Date.now();
                 
                 if (!node.highRate && statistic.previousTimestamp && (msgTimestamp - statistic.previousTimestamp) <= statistic.interval) {
@@ -219,7 +237,7 @@
                statistic.timer = 0;
             }
 
-            if (!ignoreMessage /*&& !statistic.timer*/) {
+            if (!ignoreMessage && resendMessage /*&& !statistic.timer*/) {
                 // Start a new timer, that repeatedly sends the new msg to the output
                 // (with the specified milliseconds between every two repeats).
                 // The timer id will be stored, so it can be found when a new msg arrives at the input.
@@ -244,7 +262,13 @@
                         sendMsg(msg, node, statistic);
                     }
                 }, statistic.interval);
-            } 
+            }
+            
+            // When being in pass-through mode, simply send the message to the output once (unless the msg has been forced to be resend already).
+            // Don't send the message when it should be ignored.
+            if (!statistic.resend_messages && !msg.resend_force && !ignoreMessage) {
+                node.send(msg);
+            }
         });
 
         node.on("close", function() {
