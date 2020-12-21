@@ -209,6 +209,18 @@
             if (!statistic.resend_messages && !msg.resend_force) {
                 resendMessage = false;
             }
+            
+            // Programmatic control to resend this msg anyway (overriding the previous settings...)
+            if (msg.hasOwnProperty("resend_never")) {
+                if (msg.resend_never == true || msg.resend_never == false) {
+                    if (msg.resend_never == true) {
+                        resendMessage = false;
+                    }
+                }
+                else {
+                    this.error("resend_never is not a boolean value", msg);
+                }
+            }
 
             if(!ignoreMessage && resendMessage) {                
                 var msgTimestamp = Date.now();
