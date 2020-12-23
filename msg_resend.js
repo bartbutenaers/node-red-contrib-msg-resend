@@ -314,7 +314,15 @@
             // When being in pass-through mode, simply send the message to the output once (unless the msg has been forced to be resend already).
             // Don't send the message when it should be ignored.
             if (!statistic.resend_messages && !msg.resend_force && !ignoreMessage) {
-                node.send(msg);
+                var outputMsg = msg;
+                
+                // When "force cloning" is enabled, the messages in pass-through mode should also be cloned!
+                // Otherwise we get conflicts when using "msg.resend_last_msg" afterwards on these messages, because the messages might have been changed by other nodes...
+                if (node.forceClone) {
+                    outputMsg = RED.util.cloneMessage(msg);
+                }
+                
+                node.send(outputMsg);
             }
             
             // Remember the last msg (per topic), except when it should be ignored for output
