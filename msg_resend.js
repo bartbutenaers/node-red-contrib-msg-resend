@@ -26,6 +26,7 @@
         this.firstDelayed     = config.firstDelayed;
         this.byTopic          = config.bytopic;  
         this.addCounters      = config.addCounters;
+        this.waitForResend    = config.waitForResend;
         this.highRate         = config.highRate;
         this.outputCountField = (config.outputCountField || '').trim();
         this.outputMaxField   = (config.outputMaxField || '').trim();        
@@ -60,6 +61,7 @@
         function sendMsg(msg, node, statistic) {
             var displayText = "";
             var outputMsg = msg;
+            
             
             statistic.counter++;
             
@@ -118,7 +120,32 @@
 	    }
 
         node.on('input', function(msg) {
-            //var restartTimer = false;
+            // Programmatic control of resending the last message.
+            // This is a special case: as soon as resend_last_msg has been specified, we will continue with the last message.
+            // Or we won't continue at all, if there is no last message yet.
+            if (msg.hasOwnProperty("resend_last_msg")) {
+                if (msg.resend_last_msg == true || msg.resend_last_msg == false) {
+                    if (msg.resend_last_msg == true) {
+                        // When no topic-based resending, store all topics in the map as a single virtual topic (named 'all_topics')
+                        var topic = node.byTopic ? msg.topic : "all_topics";
+                        var statistic = node.statistics.get(topic);
+                        
+                        // If no statistic available yet (for that topic), let's create it
+                        if (statistic && statistic.message) {
+                            // Continue from here with the last message (instead of the current message)
+                            msg = statistic.message;
+                        }
+                        else {
+                            this.error("There is no last message to resend", msg);
+                            return;
+                        }
+                    }
+                }
+                else {
+                    this.error("resend_last_msg is not a boolean value", msg);
+                    return;
+                }
+            } 
             
             // When no topic-based resending, store all topics in the map as a single virtual topic (named 'all_topics')
             var topic = node.byTopic ? msg.topic : "all_topics";
@@ -127,7 +154,7 @@
             // If no statistic available yet (for that topic), let's create it
             if (!statistic) {
                 // Use by default the interval, maximumCount and force_clone of the node itself
-                statistic = {counter:0, previousTimestamp:0, timer:0, message:msg, interval:node.interval, maximumCount:node.maximumCount, forceClone:node.forceClone};
+                statistic = {counter:0, previousTimestamp:0, timer:0, message:null, interval:node.interval, maximumCount:node.maximumCount, forceClone:node.forceClone, resend_messages:!node.waitForResend};
                 node.statistics.set(topic, statistic);
             }
 
@@ -165,7 +192,27 @@
                     this.error("resend_force_clone is not a boolean value", msg);
                 }
             }
+            
+            // Programmatic control of the current mode
+            if (msg.hasOwnProperty("resend_messages")) {
+                if (msg.resend_messages === true || msg.resend_messages === false) {
+                    statistic.resend_messages = msg.resend_messages;
+                }
+                else {
+                    this.error("resend_messages is not a boolean value", msg);
+                }
+            }
 
+            // Programmatic control of activating resending by topic
+            if (msg.hasOwnProperty("resend_by_topic")) {
+                if (msg.resend_by_topic == true || msg.resend_by_topic == false) {
+                    node.byTopic = msg.resend_by_topic;
+                }
+                else {
+                    this.error("resend_by_topic is not a boolean value", msg);
+                }
+            }
+            
             // Programmatic control to ignore this message from being cloned using message parameter
             var ignoreMessage = false;
             if (msg.hasOwnProperty("resend_ignore")) {
@@ -176,23 +223,31 @@
                     this.error("resend_ignore is not a boolean value", msg);
                 }
             }
+                    
+            // In case of topic-based resending, don't resend messages without topic
+            var resendMessage = true;
+            if (node.byTopic && !msg.hasOwnProperty("topic")) {
+                resendMessage = false;
+            }
             
-            // Programmatic control of activating resending by topic
-            if (msg.hasOwnProperty("resend_by_topic")) {
-                if (msg.resend_by_topic == true || msg.resend_by_topic == false) {
-                    node.byTopic = msg.resend_by_topic;
+            // Don't resend messages when the messages when resending is deactivated, unless we are forced to resend this message
+            if (!statistic.resend_messages && !msg.resend_force) {
+                resendMessage = false;
+            }
+            
+            // Programmatic control to resend this msg anyway (overriding the previous settings...)
+            if (msg.hasOwnProperty("resend_never")) {
+                if (msg.resend_never == true || msg.resend_never == false) {
+                    if (msg.resend_never == true) {
+                        resendMessage = false;
+                    }
                 }
                 else {
-                    this.error("resend_by_topic is not a boolean value", msg);
+                    this.error("resend_never is not a boolean value", msg);
                 }
             }
-                        
-            // In case of topic-based resending, skip messages without topic
-            if (node.byTopic && !msg.hasOwnProperty("topic")) {
-                ignoreMessage = true;
-            }
 
-            if(!ignoreMessage) {                
+            if(!ignoreMessage && resendMessage) {                
                 var msgTimestamp = Date.now();
                 
                 if (!node.highRate && statistic.previousTimestamp && (msgTimestamp - statistic.previousTimestamp) <= statistic.interval) {
@@ -219,7 +274,7 @@
                statistic.timer = 0;
             }
 
-            if (!ignoreMessage /*&& !statistic.timer*/) {
+            if (!ignoreMessage && resendMessage /*&& !statistic.timer*/) {
                 // Start a new timer, that repeatedly sends the new msg to the output
                 // (with the specified milliseconds between every two repeats).
                 // The timer id will be stored, so it can be found when a new msg arrives at the input.
@@ -232,11 +287,21 @@
                         // The maximum number of messages has been send, so stop the timer (for the last received input message).
                         clearInterval(statistic.timer);
                         
-                        // Remove the statistic, since it is not needed anymore
-                        node.statistics.delete(topic);
-                        
+                        // Reset the calculated values of the statistic, since those are not needed anymore.
+                        // Keep the other values unchanged, because they might have been updated via input messages...
+                        statistic.counter = 0
+                        statistic.previousTimestamp = 0
+                        statistic.timer = 0;
+
                         // Only update the node status if all messages (for all topics) have been resend
-                        if (node.statistics.size == 0) {
+                        var runningStatsCount = 0;
+                        for (var stat of node.statistics.values()) {
+                            if (stat.timer != 0) {
+                                runningStatsCount++;
+                            }
+                        }
+
+                        if (runningStatsCount === 0) {
                             node.status({fill:"green",shape:"dot",text:"maximum reached"});
                         }
                     }
@@ -244,7 +309,26 @@
                         sendMsg(msg, node, statistic);
                     }
                 }, statistic.interval);
-            } 
+            }
+            
+            // When being in pass-through mode, simply send the message to the output once (unless the msg has been forced to be resend already).
+            // Don't send the message when it should be ignored.
+            if (!statistic.resend_messages && !msg.resend_force && !ignoreMessage) {
+                var outputMsg = msg;
+                
+                // When "force cloning" is enabled, the messages in pass-through mode should also be cloned!
+                // Otherwise we get conflicts when using "msg.resend_last_msg" afterwards on these messages, because the messages might have been changed by other nodes...
+                if (node.forceClone) {
+                    outputMsg = RED.util.cloneMessage(msg);
+                }
+                
+                node.send(outputMsg);
+            }
+            
+            // Remember the last msg (per topic), except when it should be ignored for output
+            if(!ignoreMessage) {
+                statistic.message = msg;
+            }
         });
 
         node.on("close", function() {
