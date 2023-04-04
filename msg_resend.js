@@ -58,7 +58,7 @@
             default: // "msecs" so no conversion needed
         }
 
-        function sendMsg(msg, node, statistic) {
+        function sendMsg(msg, node, statistic, send, done) {
             var displayText = "";
             var outputMsg = msg;
             
@@ -81,7 +81,8 @@
                         RED.util.setMessageProperty(outputMsg, node.outputCountField, statistic.counter, true);
                     } 
                     catch(err) {
-                        node.error("Error setting count in msg." + node.outputCountField + " : " + err.message);
+                        done("Error setting count in msg." + node.outputCountField + " : " + err.message);
+                        return;
                     }
                 }
                 
@@ -91,12 +92,13 @@
                         RED.util.setMessageProperty(outputMsg, node.outputMaxField, statistic.maximumCount, true);
                     } 
                     catch(err) {
-                        node.error("Error setting maximum in msg." + node.outputMaxField + " : " + err.message);
+                        done("Error setting maximum in msg." + node.outputMaxField + " : " + err.message);
+                        return;
                     }
                 } 
             }                
                 
-            node.send(outputMsg);
+            send(outputMsg);
                      
             if (node.byTopic) {
                 // Show different status text for topic-based resending, simulating a progress bar...
@@ -119,7 +121,7 @@
             }
 	    }
 
-        node.on('input', function(msg) {
+        node.on('input', function(msg, send, done) {
             // Programmatic control of resending the last message.
             // This is a special case: as soon as resend_last_msg has been specified, we will continue with the last message.
             // Or we won't continue at all, if there is no last message yet.
@@ -136,13 +138,13 @@
                             msg = statistic.message;
                         }
                         else {
-                            this.error("There is no last message to resend", msg);
+                            done("There is no last message to resend", msg);
                             return;
                         }
                     }
                 }
                 else {
-                    this.error("resend_last_msg is not a boolean value", msg);
+                    done("resend_last_msg is not a boolean value", msg);
                     return;
                 }
             } 
@@ -251,7 +253,7 @@
                 var msgTimestamp = Date.now();
                 
                 if (!node.highRate && statistic.previousTimestamp && (msgTimestamp - statistic.previousTimestamp) <= statistic.interval) {
-                    node.error("Message not resend, because message rate too high");
+                    done("Message not resend, because message rate too high");
                     node.status({fill:"red",shape:"ring",text:"High input rate"});
                     return null;
                 }
@@ -261,7 +263,7 @@
                 
                 // User can specify that as soon as a message arrives, it will be sended to the output
                 if (!node.firstDelayed) {
-                    sendMsg(msg, node, statistic);
+                    sendMsg(msg, node, statistic, send, done);
                 }
 
                 statistic.previousTimestamp = msgTimestamp;
@@ -304,9 +306,11 @@
                         if (runningStatsCount === 0) {
                             node.status({fill:"green",shape:"dot",text:"maximum reached"});
                         }
+                        
+                        done();
                     }
                     else {
-                        sendMsg(msg, node, statistic);
+                        sendMsg(msg, node, statistic, send, done);
                     }
                 }, statistic.interval);
             }
@@ -322,7 +326,8 @@
                     outputMsg = RED.util.cloneMessage(msg);
                 }
                 
-                node.send(outputMsg);
+                send(outputMsg);
+                done();
             }
             
             // Remember the last msg (per topic), except when it should be ignored for output
